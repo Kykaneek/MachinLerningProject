@@ -1,7 +1,9 @@
-{% extends "base.html" %} {% block title %}Rejestracje{% endblock %}
+{% extends "base.html" %}
+{% block title %}Rejestracja{% endblock %}
 {% block content %}
-<form method="POST">
+<form id="register-form" method="POST">
   <h3 align="center">Zarejestruj się</h3>
+
   <div class="form-group">
     <label for="email">Adres email</label>
     <input
@@ -9,9 +11,10 @@
       class="form-control"
       id="email"
       name="email"
-      placeholder="Enter email"
+      required
     />
   </div>
+
   <div class="form-group">
     <label for="firstName">Nazwa użytkownika</label>
     <input
@@ -19,30 +22,71 @@
       class="form-control"
       id="firstName"
       name="firstName"
-      placeholder="Podaj nazwę użytkownika"
+      required
     />
   </div>
+
   <div class="form-group">
-    <label for="password1">Hasło</label>
-    <input
-      type="password"
-      class="form-control"
-      id="password1"
-      name="password1"
-      placeholder="Podaj hasło"
-    />
+    <label>Identyfikacja twarzy</label><br />
+    <div class="form-group" style="border: 1px solid #ccc; padding: 15px; border-radius: 5px;">
+    <video id="video" width="320" height="240" autoplay muted class="d-block mx-auto" style="border: 1px solid #ccc;"></video>
+    <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+    </div>
+    <br />
+    <button type="button" class="btn btn-secondary" id="start-camera">Identyfikacja twarzy</button>
   </div>
-  <div class="form-group">
-    <label for="password2">Powtórz hasło</label>
-    <input
-      type="password"
-      class="form-control"
-      id="password2"
-      name="password2"
-      placeholder="Potwierdź hasło"
-    />
-  </div>
+
   <br />
   <button type="submit" class="btn btn-primary">Stwórz konto</button>
 </form>
+
+<script>
+  const video = document.getElementById("video");
+  const canvas = document.getElementById("canvas");
+  const startBtn = document.getElementById("start-camera");
+  const form = document.getElementById("register-form");
+
+  let stream;
+
+  startBtn.onclick = async function () {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    } catch (err) {
+      alert("Nie można uzyskać dostępu do kamery.");
+      console.error(err);
+    }
+  };
+
+  form.onsubmit = async function (e) {
+    e.preventDefault();
+
+    const ctx = canvas.getContext("2d");
+    const snapshots = [];
+
+    // Zrób 5 zdjęć co 1 sekundę
+    for (let i = 0; i < 5; i++) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg");
+      snapshots.push(dataUrl);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    // Wyślij dane do serwera
+    const formData = new FormData(form);
+    formData.append("face_images", JSON.stringify(snapshots));
+
+    fetch("/register", {
+      method: "POST",
+      body: formData,
+    }).then((res) => {
+      if (res.ok) {
+        alert("Konto zostało utworzone.");
+        window.location.href = "/login";
+      } else {
+        alert("Wystąpił błąd.");
+      }
+    });
+  };
+</script>
 {% endblock %}
